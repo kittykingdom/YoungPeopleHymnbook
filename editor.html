@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>YP Hymnbook Editor</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root {
+    color-scheme: light dark;
+    --background: #FFFFFF;
+    --surface: #F2F2F7;
+    --foreground: #000000;
+    --muted: #8E8E93;
+    --border: #D1D1D6;
+    --error: #FF3B30;
+    --warning: #FF9500;
+    --success: #34C759;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: #000000;
+      --surface: #1C1C1E;
+      --foreground: #E8E8ED;
+      --muted: #8E8E93;
+      --border: #38383A;
+      --error: #FF453A;
+      --warning: #FFD60A;
+      --success: #30D158;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--background); color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--background); }
+  button { font-family: inherit; border: none; background: none; color: inherit; cursor: pointer; padding: 0; }
+  input, textarea, select { font-family: inherit; color: var(--foreground); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 16px; width: 100%; outline: none; }
+  textarea { min-height: 38vh; line-height: 1.5; resize: vertical; }
+  input:focus, textarea:focus, select:focus { border-color: var(--muted); }
+
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: max(12px, env(safe-area-inset-top)) 16px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .topbar-title { font-size: 17px; font-weight: 600; }
+  .topbar-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .primary-btn { background: var(--foreground); color: var(--background); font-size: 15px; font-weight: 600; padding: 9px 14px; border-radius: 9px; }
+  .primary-btn:active { opacity: 0.6; }
+  .quiet-btn { color: var(--muted); font-size: 15px; padding: 9px 6px; }
+  .quiet-btn:active { opacity: 0.5; }
+  .danger-btn { color: var(--error); font-size: 15px; font-weight: 500; padding: 12px; width: 100%; text-align: center; }
+
+  .banner { padding: 10px 16px; font-size: 14px; line-height: 1.4; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .banner.warn { color: var(--warning); }
+  .banner.ok { color: var(--success); }
+  .banner .banner-btn { font-size: 14px; font-weight: 600; padding: 4px 10px; border: 1px solid var(--border); border-radius: 7px; }
+
+  .screen { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+  .toolbar { display: flex; gap: 8px; padding: 10px 16px; flex-shrink: 0; }
+  .search-bar { flex: 1; display: flex; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 0 12px; }
+  .search-bar input { border: none; background: none; padding: 10px 0; }
+  .add-btn { font-size: 15px; font-weight: 600; padding: 0 14px; border: 1px solid var(--border); border-radius: 9px; }
+  .add-btn:active { opacity: 0.5; }
+
+  .section-header { padding: 8px 20px; background: var(--surface); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); position: sticky; top: 0; }
+  .list-row { display: flex; align-items: center; padding: 14px 20px; border-bottom: 1px solid var(--border); gap: 10px; width: 100%; text-align: left; }
+  .list-row:active { background: var(--surface); }
+  .list-row-num { font-size: 17px; font-weight: 700; width: 48px; flex-shrink: 0; }
+  .list-row-text { font-size: 16px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+
+  .empty-state { padding: 48px 24px; text-align: center; color: var(--muted); font-size: 15px; line-height: 1.5; }
+
+  .form { padding: 16px 16px 48px; display: flex; flex-direction: column; gap: 14px; }
+  .field-label { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+  .field-row { display: flex; gap: 10px; }
+  .field-row > div { flex: 1; }
+  .form-error { color: var(--error); font-size: 14px; line-height: 1.4; }
+  .hint { font-size: 13px; color: var(--muted); line-height: 1.5; margin-top: 6px; }
+
+  .preview { border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+  .pv-verse { display: flex; gap: 8px; margin-bottom: 14px; }
+  .pv-num { font-weight: 700; width: 20px; flex-shrink: 0; }
+  .pv-text { flex: 1; white-space: pre-wrap; line-height: 1.5; }
+  .pv-chorus { margin: 0 0 14px 28px; font-style: italic; color: var(--muted); white-space: pre-wrap; line-height: 1.5; }
+
+  .load-card { max-width: 420px; margin: 10vh auto; padding: 0 24px; text-align: center; }
+  .load-title { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
+  .load-text { font-size: 15px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+  .file-label { display: inline-block; background: var(--foreground); color: var(--background); font-size: 15px; font-weight: 600; padding: 12px 18px; border-radius: 10px; cursor: pointer; }
+  .file-label input { display: none; }
+
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--warning); margin-right: 5px; vertical-align: 1px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(function () {
+  "use strict";
+
+  /* ---------- pure helpers ---------- */
+
+  var DATA_START = '<script id="hymns-data" type="application/json">';
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  }
+
+  function extractSongs(html) {
+    var i = html.indexOf(DATA_START);
+    if (i < 0) throw new Error('Song data block not found in that file.');
+    var start = i + DATA_START.length;
+    var j = html.indexOf('</' + 'script>', start);
+    if (j < 0) throw new Error('Song data block is not closed.');
+    return {
+      songs: JSON.parse(html.slice(start, j)),
+      before: html.slice(0, start),
+      after: html.slice(j)
+    };
+  }
+
+  function spliceSongs(template, songs) {
+    var json = JSON.stringify(songs).replace(/<\/script/gi, '<\\/script');
+    return template.before + json + template.after;
+  }
+
+  function songNum(s) { return parseInt(s.number, 10) || 0; }
+
+  function sortSongs(songs) {
+    var main = songs.filter(function (s) { return s.category !== 'appendix'; })
+      .sort(function (a, b) { return songNum(a) - songNum(b); });
+    var app = songs.filter(function (s) { return s.category === 'appendix'; })
+      .sort(function (a, b) { return songNum(a) - songNum(b); });
+    return main.concat(app);
+  }
+
+  function normalizeNumber(raw) {
+    return String(raw || '').trim().toUpperCase();
+  }
+
+  function validNumber(n) { return /^\d+A?$/.test(n); }
+
+  function categoryFor(n) { return /A$/.test(n) ? 'appendix' : 'main'; }
+
+  function previewHtml(lyrics) {
+    var out = '', v = 1;
+    var paras = String(lyrics || '').split('\n\n');
+    for (var k = 0; k < paras.length; k++) {
+      var t = paras[k].trim();
+      if (!t) continue;
+      if (t.indexOf('Chorus:') === 0) {
+        out += '<div class="pv-chorus">' + escapeHtml(t.replace('Chorus:', '').trim()) + '</div>';
+      } else {
+        out += '<div class="pv-verse"><div class="pv-num">' + v + '</div><div class="pv-text">' + escapeHtml(t) + '</div></div>';
+        v++;
+      }
+    }
+    return out || '<div class="empty-state" style="padding:12px;">Lyrics preview will appear here as you type.</div>';
+  }
+
+  /* __EDITOR_INIT__ */
+
+  /* ---------- storage ---------- */
+
+  var KEYS = { SONGS: 'yp_editor_draft_songs', TS: 'yp_editor_draft_ts', DIRTY: 'yp_editor_dirty', FORM: 'yp_editor_form' };
+  function sGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function sSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  function sDel(k) { try { localStorage.removeItem(k); } catch (e) {} }
+
+  /* ---------- state ---------- */
+
+  var state = {
+    view: 'loading',        // loading | pickfile | list | edit
+    songs: null,
+    template: null,         // { before, after }
+    editingId: null,        // null => adding new
+    dirty: false,
+    query: '',
+    message: null,          // { kind: 'ok'|'warn', text }
+    resumeTs: null,         // pending draft timestamp, if offering resume
+    pendingDraft: null,
+    loadError: null
+  };
+
+  var app = document.getElementById('app');
+
+  app.addEventListener('click', function (e) {
+    var el = e.target.closest('[data-action]');
+    if (!el) return;
+    handleAction(el.getAttribute('data-action'), el);
+  });
+
+  /* ---------- loading ---------- */
+
+  function start() {
+    render();
+    fetch('index.html?fresh=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then(function (text) { adoptTemplate(text); })
+      .catch(function () {
+        state.view = 'pickfile';
+        render();
+      });
+  }
+
+  function adoptTemplate(text) {
+    try {
+      var t = extractSongs(text);
+    } catch (err) {
+      state.view = 'pickfile';
+      state.loadError = err.message;
+      render();
+      return;
+    }
+    state.template = { before: t.before, after: t.after };
+    state.songs = sortSongs(t.songs);
+
+    // Offer to resume unsaved edits that differ from the loaded file.
+    var draftRaw = sGet(KEYS.SONGS);
+    if (draftRaw) {
+      try {
+        var draft = JSON.parse(draftRaw);
+        if (JSON.stringify(sortSongs(draft)) !== JSON.stringify(state.songs)) {
+          state.pendingDraft = draft;
+          state.resumeTs = sGet(KEYS.TS);
+        } else {
+          sDel(KEYS.SONGS); sDel(KEYS.TS); sDel(KEYS.DIRTY);
+        }
+      } catch (e) {}
+    }
+    if (!navigator.onLine) {
+      state.message = { kind: 'warn', text: "You're offline — songs were loaded from this phone's saved copy. Make sure it's the latest before uploading changes." };
+    }
+    state.view = 'list';
+    render();
+  }
+
+  function persistDraft() {
+    sSet(KEYS.SONGS, JSON.stringify(state.songs));
+    sSet(KEYS.TS, String(Date.now()));
+    sSet(KEYS.DIRTY, state.dirty ? '1' : '0');
+  }
+
+  /* ---------- rendering ---------- */
+
+  function render() {
+    var html = renderTopBar() + renderBanners();
+    if (state.view === 'loading') html += '<div class="empty-state">Loading songs…</div>';
+    else if (state.view === 'pickfile') html += renderPickFile();
+    else if (state.view === 'list') html += renderList();
+    else if (state.view === 'edit') html += renderEdit();
+    app.innerHTML = html;
+    afterRender();
+  }
+
+  function renderTopBar() {
+    var right = '';
+    var sub = '';
+    if (state.view === 'list') {
+      right = '<button class="primary-btn" data-action="download">Download index.html</button>';
+      sub = '<div class="topbar-sub">' + state.songs.length + ' songs' + (state.dirty ? ' &middot; <span class="dot"></span>unsaved changes' : '') + '</div>';
+    } else if (state.view === 'edit') {
+      right = '<button class="primary-btn" data-action="save-song">Save</button>';
+    }
+    var left = state.view === 'edit'
+      ? '<button class="quiet-btn" data-action="cancel-edit">Cancel</button>'
+      : '<div><div class="topbar-title">YP Hymnbook Editor</div>' + sub + '</div>';
+    if (state.view === 'edit') {
+      left = '<div style="display:flex;align-items:center;gap:4px;">' + left +
+        '<div class="topbar-title">' + (state.editingId ? 'Edit song' : 'New song') + '</div></div>';
+    }
+    return '<div class="topbar">' + left + right + '</div>';
+  }
+
+  function renderBanners() {
+    var out = '';
+    if (state.pendingDraft) {
+      var when = state.resumeTs ? new Date(parseInt(state.resumeTs, 10)).toLocaleString() : '';
+      out += '<div class="banner warn"><span>You have unsaved edits from ' + escapeHtml(when) + ' that aren\u2019t in the live site yet.</span>' +
+        '<button class="banner-btn" data-action="resume-draft">Resume them</button>' +
+        '<button class="banner-btn" data-action="discard-draft">Discard</button></div>';
+    }
+    if (state.message) {
+      out += '<div class="banner ' + state.message.kind + '">' + escapeHtml(state.message.text) + '</div>';
+    }
+    return out;
+  }
+
+  function renderPickFile() {
+    return '<div class="screen"><div class="load-card">' +
+      '<div class="load-title">Open your hymnbook file</div>' +
+      '<div class="load-text">' +
+      (state.loadError ? escapeHtml(state.loadError) + '<br><br>' : '') +
+      'The live site couldn\u2019t be reached from here, so choose your <b>index.html</b> to edit it directly.</div>' +
+      '<label class="file-label">Choose index.html<input type="file" id="file-input" accept=".html,text/html"></label>' +
+      '</div></div>';
+  }
+
+  function songMatches(s, q) {
+    return s.number.toLowerCase().indexOf(q) >= 0 ||
+      s.title.toLowerCase().indexOf(q) >= 0 ||
+      s.lyrics.toLowerCase().indexOf(q) >= 0;
+  }
+
+  function listRowsHtml() {
+    var q = state.query.toLowerCase().trim();
+    var songs = q ? state.songs.filter(function (s) { return songMatches(s, q); }) : state.songs;
+    if (!songs.length) return '<div class="empty-state">No songs match that search.</div>';
+    var out = '', lastCat = null;
+    for (var i = 0; i < songs.length; i++) {
+      var s = songs[i];
+      if (s.category !== lastCat) {
+        out += '<div class="section-header">' + (s.category === 'appendix' ? 'Appendix' : 'Hymns') + '</div>';
+        lastCat = s.category;
+      }
+      out += '<button class="list-row" data-action="open-edit" data-id="' + escapeHtml(s.id) + '">' +
+        '<span class="list-row-num">' + escapeHtml(s.number) + '</span>' +
+        '<span class="list-row-text">' + escapeHtml(s.title) + '</span></button>';
+    }
+    return out;
+  }
+
+  function renderList() {
+    return '<div class="toolbar">' +
+      '<div class="search-bar"><input type="text" id="list-search" placeholder="Search songs" value="' + escapeHtml(state.query) + '" autocomplete="off"></div>' +
+      '<button class="add-btn" data-action="add-song">+ Add</button>' +
+      '</div>' +
+      '<div class="screen" id="song-list">' + listRowsHtml() + '</div>';
+  }
+
+  function findSong(id) {
+    for (var i = 0; i < state.songs.length; i++) if (state.songs[i].id === id) return state.songs[i];
+    return null;
+  }
+
+  function renderEdit() {
+    var s = state.editingId ? findSong(state.editingId) : null;
+    var statuses = ['PUBLIC DOMAIN', 'COPYRIGHTED', 'UNCERTAIN'];
+    var cur = s && s.copyrightStatus ? s.copyrightStatus : 'UNCERTAIN';
+    if (statuses.indexOf(cur) < 0) statuses.push(cur);
+    var opts = statuses.map(function (st) {
+      return '<option value="' + escapeHtml(st) + '"' + (st === cur ? ' selected' : '') + '>' + escapeHtml(st) + '</option>';
+    }).join('');
+    return '<div class="screen"><div class="form">' +
+      '<div id="form-error" class="form-error hidden"></div>' +
+      '<div class="field-row">' +
+        '<div><div class="field-label">Number</div><input id="f-number" inputmode="text" autocapitalize="characters" value="' + escapeHtml(s ? s.number : '') + '" placeholder="197 or 46A"></div>' +
+        '<div><div class="field-label">Year</div><input id="f-year" value="' + escapeHtml(s ? s.year : '') + '" placeholder="Optional"></div>' +
+      '</div>' +
+      '<div><div class="field-label">Title</div><input id="f-title" value="' + escapeHtml(s ? s.title : '') + '"></div>' +
+      '<div><div class="field-label">Author</div><input id="f-author" value="' + escapeHtml(s ? s.author : '') + '" placeholder="Optional"></div>' +
+      '<div><div class="field-label">Lyrics</div>' +
+        '<textarea id="f-lyrics" autocapitalize="sentences">' + escapeHtml(s ? s.lyrics : '') + '</textarea>' +
+        '<div class="hint">Leave a blank line between verses. Put <b>Chorus:</b> on its own line above the chorus. A number like 46A goes in the Appendix automatically.</div></div>' +
+      '<div><div class="field-label">Preview</div><div class="preview" id="lyrics-preview">' + previewHtml(s ? s.lyrics : '') + '</div></div>' +
+      '<div class="field-row">' +
+        '<div><div class="field-label">Copyright status</div><select id="f-status">' + opts + '</select></div>' +
+      '</div>' +
+      '<div><div class="field-label">Copyright note</div><input id="f-note" value="' + escapeHtml(s ? s.copyrightNote : '') + '" placeholder="Optional"></div>' +
+      (state.editingId ? '<button class="danger-btn" data-action="delete-song">Delete this song</button>' : '') +
+      '</div></div>';
+  }
+
+  /* ---------- post-render wiring (inputs only; clicks are delegated) ---------- */
+
+  function afterRender() {
+    var search = document.getElementById('list-search');
+    if (search) {
+      search.addEventListener('input', function (e) {
+        state.query = e.target.value;
+        var list = document.getElementById('song-list');
+        if (list) list.innerHTML = listRowsHtml();
+      });
+    }
+    var lyrics = document.getElementById('f-lyrics');
+    if (lyrics) {
+      lyrics.addEventListener('input', function () {
+        var pv = document.getElementById('lyrics-preview');
+        if (pv) pv.innerHTML = previewHtml(lyrics.value);
+        saveFormDraft();
+      });
+    }
+    ['f-number', 'f-title', 'f-author', 'f-year', 'f-note'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('input', saveFormDraft);
+    });
+    var fileInput = document.getElementById('file-input');
+    if (fileInput) {
+      fileInput.addEventListener('change', function (e) {
+        var f = e.target.files && e.target.files[0];
+        if (!f) return;
+        var reader = new FileReader();
+        reader.onload = function () { state.loadError = null; adoptTemplate(String(reader.result)); };
+        reader.readAsText(f);
+      });
+    }
+    restoreFormDraft();
+  }
+
+  /* ---------- in-progress form protection ---------- */
+
+  function formKey() { return state.editingId || '__new__'; }
+
+  function readForm() {
+    function val(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+    return {
+      number: val('f-number'), title: val('f-title'), author: val('f-author'),
+      year: val('f-year'), lyrics: val('f-lyrics'),
+      copyrightStatus: val('f-status'), copyrightNote: val('f-note')
+    };
+  }
+
+  function saveFormDraft() {
+    if (state.view !== 'edit') return;
+    sSet(KEYS.FORM, JSON.stringify({ key: formKey(), fields: readForm() }));
+  }
+
+  function restoreFormDraft() {
+    if (state.view !== 'edit') return;
+    var raw = sGet(KEYS.FORM);
+    if (!raw) return;
+    try {
+      var saved = JSON.parse(raw);
+      if (saved.key !== formKey()) return;
+      var f = saved.fields;
+      var map = { 'f-number': f.number, 'f-title': f.title, 'f-author': f.author, 'f-year': f.year, 'f-lyrics': f.lyrics, 'f-status': f.copyrightStatus, 'f-note': f.copyrightNote };
+      Object.keys(map).forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el && map[id] != null && el.value !== map[id]) el.value = map[id];
+      });
+      var pv = document.getElementById('lyrics-preview');
+      var ly = document.getElementById('f-lyrics');
+      if (pv && ly) pv.innerHTML = previewHtml(ly.value);
+    } catch (e) {}
+  }
+
+  /* ---------- actions ---------- */
+
+  function showFormError(msg) {
+    var el = document.getElementById('form-error');
+    if (el) { el.textContent = msg; el.classList.remove('hidden'); el.scrollIntoView({ block: 'nearest' }); }
+  }
+
+  function handleAction(action, el) {
+    switch (action) {
+      case 'open-edit':
+        state.editingId = el.getAttribute('data-id');
+        state.view = 'edit';
+        state.message = null;
+        render();
+        break;
+      case 'add-song':
+        state.editingId = null;
+        state.view = 'edit';
+        state.message = null;
+        render();
+        break;
+      case 'cancel-edit':
+        sDel(KEYS.FORM);
+        state.view = 'list';
+        render();
+        break;
+      case 'save-song': {
+        var f = readForm();
+        var n = normalizeNumber(f.number);
+        if (!validNumber(n)) { showFormError('The number should look like 197, or 46A for an appendix song.'); return; }
+        var clash = state.songs.some(function (s) { return s.number === n && s.id !== state.editingId; });
+        if (clash) { showFormError('Number ' + n + ' is already used by another song.'); return; }
+        if (!f.title.trim()) { showFormError('The song needs a title.'); return; }
+        if (!f.lyrics.trim()) { showFormError('The song needs lyrics.'); return; }
+        var song = {
+          number: n,
+          title: f.title.trim(),
+          lyrics: f.lyrics.replace(/\r\n/g, '\n').trim(),
+          category: categoryFor(n),
+          id: n,
+          author: f.author.trim() || 'Unknown',
+          year: f.year.trim() || 'Unknown',
+          copyrightStatus: f.copyrightStatus || 'UNCERTAIN',
+          copyrightNote: f.copyrightNote.trim()
+        };
+        if (state.editingId) {
+          var idx = state.songs.findIndex(function (s) { return s.id === state.editingId; });
+          if (idx >= 0) state.songs[idx] = song;
+        } else {
+          state.songs.push(song);
+        }
+        state.songs = sortSongs(state.songs);
+        state.dirty = true;
+        persistDraft();
+        sDel(KEYS.FORM);
+        state.view = 'list';
+        state.message = { kind: 'ok', text: (state.editingId ? 'Saved ' : 'Added ') + n + ' \u2014 ' + song.title + '. Tap Download when you\u2019re ready to publish.' };
+        state.editingId = null;
+        render();
+        break;
+      }
+      case 'delete-song': {
+        var target = findSong(state.editingId);
+        if (!target) return;
+        if (!window.confirm('Delete ' + target.number + ' \u2014 ' + target.title + '? This can\u2019t be undone once uploaded.')) return;
+        state.songs = state.songs.filter(function (s) { return s.id !== state.editingId; });
+        state.dirty = true;
+        persistDraft();
+        sDel(KEYS.FORM);
+        state.view = 'list';
+        state.message = { kind: 'ok', text: 'Deleted ' + target.number + ' \u2014 ' + target.title + '.' };
+        state.editingId = null;
+        render();
+        break;
+      }
+      case 'resume-draft':
+        state.songs = sortSongs(state.pendingDraft);
+        state.dirty = sGet(KEYS.DIRTY) !== '0';
+        state.pendingDraft = null;
+        state.resumeTs = null;
+        render();
+        break;
+      case 'discard-draft':
+        sDel(KEYS.SONGS); sDel(KEYS.TS); sDel(KEYS.DIRTY); sDel(KEYS.FORM);
+        state.pendingDraft = null;
+        state.resumeTs = null;
+        render();
+        break;
+      case 'download': {
+        var htmlOut = spliceSongs(state.template, sortSongs(state.songs));
+        var blob = new Blob([htmlOut], { type: 'text/html' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'index.html';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+        state.dirty = false;
+        persistDraft();
+        state.message = { kind: 'ok', text: 'Saved to your Downloads as index.html. Upload it to your GitHub repo (replacing the old index.html) to publish \u2014 make sure the uploaded file is named exactly index.html.' };
+        render();
+        break;
+      }
+    }
+  }
+
+  start();
+})();
+</script>
+</body>
+</html>
